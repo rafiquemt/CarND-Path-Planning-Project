@@ -282,7 +282,9 @@ int main() {
 
           double lane = 1; // 0, 1, 2 (left, middle, right)
           double v_max = 49.5;
+
           double v_ref = v_max;
+
           int num_points = 50;
 
           double dist_inc = 0.5;
@@ -304,7 +306,7 @@ int main() {
             ptsy.push_back(prev_car_y);
             ptsy.push_back(car_y);
           } else {
-            prev_size = min(prev_buffer_length, prev_size);
+            //prev_size = min(prev_buffer_length, prev_size);
 
             ref_x = previous_path_x[prev_size - 1];
             ref_y = previous_path_y[prev_size - 1];
@@ -330,11 +332,15 @@ int main() {
           ptsx.push_back(next_wp1[0]);
           ptsx.push_back(next_wp2[0]);
 
-          ptsy.push_back(next_wp0[0]);
           ptsy.push_back(next_wp0[1]);
-          ptsy.push_back(next_wp0[2]);
+          ptsy.push_back(next_wp0[1]);
+          ptsy.push_back(next_wp0[1]);
+
+
           
           rotatePoints(ptsx, ptsy, ref_x, ref_y, ref_yaw);
+
+
           // --- Points is now centered at where the car is
           // --- We're going to create a spline based on that
           // create spline
@@ -350,11 +356,27 @@ int main() {
           double target_x = 30.0;
           double target_y = s(target_x);
           double target_dist = getDistance(target_x, target_y);
-
+          // N x 0.02 x target_velocity = target_dist
           double x_add_on = 0;
 
-          for (int i = 1; i <= 50 - prev_size; i++) {
+          for (int i = 1; i <= num_points - prev_size; i++) {
+            double N = (target_dist/(.02 * v_ref/2.24));
+            double x_point = x_add_on + (target_x)/N;
+            double y_point = s(x_point);
             
+            x_add_on = x_point;
+
+            double x_ref = x_point;
+            double y_ref = y_point;
+
+            x_point = (x_ref * cos(ref_yaw) - y_ref * sin(ref_yaw));
+            y_point = (x_ref * sin(ref_yaw) + y_ref * cos(ref_yaw));
+
+            x_point += ref_x;
+            y_point += ref_y;
+
+            next_x_vals.push_back(x_point);
+            next_y_vals.push_back(y_point);
           }
 
           // END TODO
