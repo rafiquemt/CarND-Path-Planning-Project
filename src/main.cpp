@@ -358,9 +358,9 @@ int main() {
 
           // generate spaced out points
           auto wp_d = 2 + 4 * lane;
-          auto next_wp0 = getXY(car_s + 30, wp_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-          auto next_wp1 = getXY(car_s + 60, wp_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-          auto next_wp2 = getXY(car_s + 90, wp_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          auto next_wp0 = getXY(car_s + 10, wp_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          auto next_wp1 = getXY(car_s + 20, wp_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          auto next_wp2 = getXY(car_s + 30, wp_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
           // cout << "s: " << car_s + 90 << endl;
           ptsx.push_back(next_wp0[0]);
           ptsx.push_back(next_wp1[0]);
