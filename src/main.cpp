@@ -182,6 +182,9 @@ void rotatePoints(vector<double>& ptsx, vector<double>& ptsy,
 double getDistance(double x, double y) {
   return sqrt(x * x + y* y);
 }
+double isOtherCarInLane(double other_d, double my_lane) {
+  return other_d < (2+4*my_lane + 2) && other_d > (2+4*my_lane -2);
+}
 
 int main() {
   uWS::Hub h;
@@ -219,9 +222,11 @@ int main() {
     map_waypoints_dx.push_back(d_x);
     map_waypoints_dy.push_back(d_y);
   }
+  // velocity we're going after
+  double v_ref = 0.0; //mph
+  double lane = 1; // 0, 1, 2 (left, middle, right)
 
-
-  h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
+  h.onMessage([&v_ref, &lane, &map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
@@ -245,8 +250,8 @@ int main() {
           double car_y = j[1]["y"];
           double car_s = j[1]["s"];
           double car_d = j[1]["d"];
-          double car_yaw = j[1]["yaw"];
-          double car_speed = j[1]["speed"];
+          double car_yaw = j[1]["yaw"]; // in degrees
+          double car_speed = j[1]["speed"]; // it's in mph
 
           // Previous path data given to the Planner
           auto previous_path_x = j[1]["previous_path_x"];
@@ -279,11 +284,7 @@ int main() {
           const double prev_buffer_length = 10;
           double prev_size = previous_path_x.size();
           const double deltat_per_point = 0.2;
-
-          double lane = 1; // 0, 1, 2 (left, middle, right)
-          double v_max = 49.5;
-
-          double v_ref = v_max;
+          double v_max = 49.8;
 
           int num_points = 50;
 
@@ -293,7 +294,40 @@ int main() {
             cout << "previous path size mismatch. Exiting!";
             exit(-1);
           }
+          // Start obstacle avoidance
+          double future_car_s = car_s;
+          if (prev_size > 0) {
+            future_car_s = end_path_s; // predicting that the car will be at end_path_s
+          }
+          bool too_close = false;
 
+          for (int i = 0; i < sensor_fusion.size(); i++) {
+            // get lane of upcoming car
+            float d = sensor_fusion[i][6];
+            if (isOtherCarInLane(d, lane)) {
+              double vx = sensor_fusion[i][3];
+              double vy = sensor_fusion[i][4];
+              double check_speed = getDistance(vx, vy);
+              double check_car_s = sensor_fusion[i][5];
+
+              // Project value of other car to the future (up to previous points length)
+              check_car_s += ((double)prev_size * 0.02 * check_speed);
+              double delta_s = check_car_s - future_car_s;
+              if (delta_s > 0 && delta_s < 20) {
+                // v_ref = 29.5;
+                too_close = true;
+                if (lane > 0) {
+                  lane = 0;
+                }
+              }
+            }
+          }
+
+          if (too_close) {
+            v_ref -= 0.224;
+          } else if (v_ref < v_max) {
+            v_ref += 0.224;
+          }
 
           if (prev_size <= 2) {
             // fresh case
@@ -327,7 +361,7 @@ int main() {
           auto next_wp0 = getXY(car_s + 30, wp_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
           auto next_wp1 = getXY(car_s + 60, wp_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
           auto next_wp2 = getXY(car_s + 90, wp_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-
+          // cout << "s: " << car_s + 90 << endl;
           ptsx.push_back(next_wp0[0]);
           ptsx.push_back(next_wp1[0]);
           ptsx.push_back(next_wp2[0]);
