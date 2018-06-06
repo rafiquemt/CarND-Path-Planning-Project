@@ -8,11 +8,13 @@
 #include "Eigen-3.3/Eigen/Core"
 #include "Eigen-3.3/Eigen/QR"
 #include "json.hpp"
+#include "spline.h"
 
 using namespace std;
 
 // for convenience
 using json = nlohmann::json;
+using spline = tk::spline;
 
 // For converting back and forth between radians and degrees.
 constexpr double pi() { return M_PI; }
@@ -277,6 +279,54 @@ int main() {
             auto wp0 = getXY(car_s + 30, 2 + 4 * lane, map_waypoints_s, map_waypoints_x, map_waypoints_y);
             auto wp1 = getXY(car_s + 30, 2 + 4 * lane, map_waypoints_s, map_waypoints_x, map_waypoints_y);
             auto wp2 = getXY(car_s + 30, 2 + 4 * lane, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+            ptsx.push_back(wp0[0]);
+            ptsx.push_back(wp1[0]);
+            ptsx.push_back(wp2[0]);
+
+            ptsy.push_back(wp0[1]);
+            ptsy.push_back(wp1[1]);
+            ptsy.push_back(wp2[1]);
+
+            // convert to car coordinates
+            for (int i = 0; i < ptsx.size(); i++) {
+              double shift_x = ptsx[i] - ref_x;
+              double shift_y = ptsy[i] - ref_y;
+              ptsx[i] = shift_x * cos(0 - ref_yaw) - shift_y * sin(0 - ref_yaw);
+              ptsy[i] = shift_x * sin(0 - ref_yaw) + shift_y * cos(0 - ref_yaw);
+            }
+
+            // Create spline and interpolate
+            spline s;
+            s.set_points(ptsx, ptsy);
+
+            for (int i = 0; i < prev_size; i++) {
+              next_x_vals.push_back(previous_path_x[i]);
+              next_y_vals.push_back(previous_path_y[i]);
+            }
+
+            double target_x = 30;
+            double target_y = spline(target_x);
+            double target_dist = sqrt((target_x * target_x) + (target_y * target_y));
+            double x_add_on = 0.0;
+
+            // create driving points
+            for (int i = 0; i < 50 - prev_size; i++)
+            {
+              double N = target_dist / (0.02 * ref_vel / 2.24);
+              double x_point = x_add_on + target_x / N;
+              double y_point = spline(x_point);
+              x_add_on = x_point;
+
+              double x_ref = x_point;
+              double y_ref = y_point;
+
+              x_point = ref_x + ((x_ref * cos(ref_yaw)) - (y_ref * sin(ref_yaw)));
+              y_point = ref_y + ((x_ref * sin(ref_yaw)) + (y_ref * cos(ref_yaw)));
+
+              next_x_vals.push_back(x_point);
+              next_y_vals.push_back(y_point);
+            }
+
 
           	// TODO: define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
           	msgJson["next_x"] = next_x_vals;
