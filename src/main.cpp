@@ -247,7 +247,7 @@ int main() {
 
             int prev_size = previous_path_x.size();
 
-            if (prev_size < 1) {
+            if (prev_size > 1) {
               car_s = end_path_s;
             }
 
@@ -257,7 +257,24 @@ int main() {
 
             double ref_x_prev, ref_y_prev;
 
-            
+            vector<double> ptsx;
+            vector<double> ptsy;
+
+            if (prev_size < 2) {
+              ref_x_prev = ref_x - cos(ref_yaw);
+              ref_y_prev = ref_y - sin(ref_yaw);
+            } else {
+              ref_x = previous_path_x[prev_size - 1];
+              ref_y = previous_path_y[prev_size - 1];
+              ref_x_prev = previous_path_x[prev_size - 2];
+              ref_y_prev = previous_path_y[prev_size - 2];
+            }
+            ptsx.push_back(ref_x_prev);
+            ptsx.push_back(ref_x);
+            ptsy.push_back(ref_y_prev);
+            ptsy.push_back(ref_y);
+
+            auto wp0 = getXY(car_s)
 
           	// TODO: define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
           	msgJson["next_x"] = next_x_vals;
