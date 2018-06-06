@@ -165,6 +165,10 @@ vector<double> getXY(double s, double d, const vector<double> &maps_s, const vec
 
 }
 
+double isOtherCarInLane(double other_d, double my_lane) {
+  return other_d < (2+4*my_lane + 2) && other_d > (2+4*my_lane -2);
+}
+
 int main() {
   uWS::Hub h;
 
@@ -203,9 +207,11 @@ int main() {
   }
 
   double lane = 1;
-  double ref_vel = 80;
+  double ref_vel = 0;
+  const double v_max = 49.5;
+  double goal_vel = v_max;
   
-  h.onMessage([&lane, &ref_vel, &map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
+  h.onMessage([&lane, &ref_vel, &goal_vel, &v_max, &map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
@@ -228,6 +234,7 @@ int main() {
           	double car_x = j[1]["x"];
           	double car_y = j[1]["y"];
           	double car_s = j[1]["s"];
+            double original_car_s = car_s;
           	double car_d = j[1]["d"];
           	double car_yaw = j[1]["yaw"];
           	double car_speed = j[1]["speed"];
@@ -259,6 +266,38 @@ int main() {
 
             double ref_x_prev, ref_y_prev;
 
+            // -- Decide Velocity
+            // --------
+            bool too_close = false;
+            goal_vel = v_max;
+            for (int i = 0; i < sensor_fusion.size(); i++) {
+              // get lane of upcoming car
+              float d = sensor_fusion[i][6];
+              if (isOtherCarInLane(d, lane)) {
+                double vx = sensor_fusion[i][3];
+                double vy = sensor_fusion[i][4];
+                double check_speed = sqrt(vx * vx + vy * vy) * 2.24; // mph
+                double check_car_s = sensor_fusion[i][5];
+
+                // Project value of other car to the future (up to previous points length)
+                //check_car_s += ((double)prev_size * 0.02 * check_speed);
+                double delta_s = check_car_s - original_car_s;
+                if (delta_s > 0 && delta_s < 30) {
+                  cout << "Delta s: " << delta_s << endl;
+                  goal_vel = check_speed;
+                  too_close = true;
+                }
+              }
+            }
+
+            if (too_close && ref_vel > goal_vel) {
+              ref_vel -= 0.224;
+            } else if (ref_vel < goal_vel) {
+              ref_vel += 0.224;
+            }
+            // ------
+
+            // ---- Code below is to execute associated plan
             vector<double> ptsx;
             vector<double> ptsy;
 
