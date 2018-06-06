@@ -270,6 +270,8 @@ int main() {
               ref_y = previous_path_y[prev_size - 1];
               ref_x_prev = previous_path_x[prev_size - 2];
               ref_y_prev = previous_path_y[prev_size - 2];
+
+              ref_yaw = atan2(ref_y - ref_y_prev, ref_x - ref_x_prev);
             }
             ptsx.push_back(ref_x_prev);
             ptsx.push_back(ref_x);
@@ -277,8 +279,8 @@ int main() {
             ptsy.push_back(ref_y);
 
             auto wp0 = getXY(car_s + 30, 2 + 4 * lane, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-            auto wp1 = getXY(car_s + 30, 2 + 4 * lane, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-            auto wp2 = getXY(car_s + 30, 2 + 4 * lane, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+            auto wp1 = getXY(car_s + 60, 2 + 4 * lane, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+            auto wp2 = getXY(car_s + 90, 2 + 4 * lane, map_waypoints_s, map_waypoints_x, map_waypoints_y);
             ptsx.push_back(wp0[0]);
             ptsx.push_back(wp1[0]);
             ptsx.push_back(wp2[0]);
@@ -305,7 +307,7 @@ int main() {
             }
 
             double target_x = 30;
-            double target_y = spline(target_x);
+            double target_y = s(target_x);
             double target_dist = sqrt((target_x * target_x) + (target_y * target_y));
             double x_add_on = 0.0;
 
@@ -314,7 +316,7 @@ int main() {
             {
               double N = target_dist / (0.02 * ref_vel / 2.24);
               double x_point = x_add_on + target_x / N;
-              double y_point = spline(x_point);
+              double y_point = s(x_point);
               x_add_on = x_point;
 
               double x_ref = x_point;
