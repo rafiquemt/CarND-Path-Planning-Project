@@ -247,7 +247,7 @@ int main() {
 
             int prev_size = previous_path_x.size();
 
-            if (prev_size > 1) {
+            if (prev_size >= 1) {
               car_s = end_path_s;
             }
 
@@ -274,7 +274,9 @@ int main() {
             ptsy.push_back(ref_y_prev);
             ptsy.push_back(ref_y);
 
-            auto wp0 = getXY(car_s)
+            auto wp0 = getXY(car_s + 30, 2 + 4 * lane, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+            auto wp1 = getXY(car_s + 30, 2 + 4 * lane, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+            auto wp2 = getXY(car_s + 30, 2 + 4 * lane, map_waypoints_s, map_waypoints_x, map_waypoints_y);
 
           	// TODO: define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
           	msgJson["next_x"] = next_x_vals;
