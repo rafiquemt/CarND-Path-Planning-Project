@@ -180,7 +180,7 @@ void rotatePoints(vector<double>& ptsx, vector<double>& ptsy,
 }
 
 double getDistance(double x, double y) {
-  return sqrt(x * x + y* y);
+  return sqrt(x * x + y * y);
 }
 double isOtherCarInLane(double other_d, double my_lane) {
   return other_d < (2+4*my_lane + 2) && other_d > (2+4*my_lane -2);
@@ -223,10 +223,10 @@ int main() {
     map_waypoints_dy.push_back(d_y);
   }
   // velocity we're going after
-  double v_ref = 0.0; //mph
+  double ref_vel = 0.0; // mph
   double lane = 1; // 0, 1, 2 (left, middle, right)
 
-  h.onMessage([&v_ref, &lane, &map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
+  h.onMessage([&ref_vel, &lane, &map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
@@ -281,70 +281,69 @@ int main() {
           double ref_yaw = deg2rad(car_yaw);
 
           // constants
-          const double prev_buffer_length = 10;
+          //const double prev_buffer_length = 10;
           double prev_size = previous_path_x.size();
-          const double deltat_per_point = 0.2;
-          double v_max = 49.8;
+          if (prev_size != previous_path_y.size()) {
+            cout << "previous path size mismatch. Exiting!";
+            exit(-1);
+          }
+          const double deltat_per_point = 0.020;
+          double v_max = 49.5;
 
           int num_points = 50;
 
           double dist_inc = 0.5;
 
-          if (prev_size != previous_path_y.size()) {
-            cout << "previous path size mismatch. Exiting!";
-            exit(-1);
-          }
-          // Start obstacle avoidance
-          double future_car_s = car_s;
+
           if (prev_size > 0) {
-            future_car_s = end_path_s; // predicting that the car will be at end_path_s
+            car_s = end_path_s; // predicting that the car will be at end_path_s
           }
           bool too_close = false;
 
-          for (int i = 0; i < sensor_fusion.size(); i++) {
-            // get lane of upcoming car
-            float d = sensor_fusion[i][6];
-            if (isOtherCarInLane(d, lane)) {
-              double vx = sensor_fusion[i][3];
-              double vy = sensor_fusion[i][4];
-              double check_speed = getDistance(vx, vy);
-              double check_car_s = sensor_fusion[i][5];
+          // for (int i = 0; i < sensor_fusion.size(); i++) {
+          //   // get lane of upcoming car
+          //   float d = sensor_fusion[i][6];
+          //   if (isOtherCarInLane(d, lane)) {
+          //     double vx = sensor_fusion[i][3];
+          //     double vy = sensor_fusion[i][4];
+          //     double check_speed = getDistance(vx, vy);
+          //     double check_car_s = sensor_fusion[i][5];
 
-              // Project value of other car to the future (up to previous points length)
-              check_car_s += ((double)prev_size * 0.02 * check_speed);
-              double delta_s = check_car_s - future_car_s;
-              if (delta_s > 0 && delta_s < 20) {
-                // v_ref = 29.5;
-                too_close = true;
-                if (lane > 0) {
-                  lane = 0;
-                }
-              }
-            }
-          }
+          //     // Project value of other car to the future (up to previous points length)
+          //     check_car_s += ((double)prev_size * 0.02 * check_speed);
+          //     double delta_s = check_car_s - car_s;
+          //     if (delta_s > 0 && delta_s < 30) {
+          //       // v_ref = 29.5;
+          //       too_close = true;
+          //       if (lane > 0) {
+          //         lane = 0;
+          //       }
+          //     }
+          //   }
+          // }
 
           if (too_close) {
-            v_ref -= 0.224;
-          } else if (v_ref < v_max) {
-            v_ref += 0.224;
+            ref_vel -= 0.224;
+          } else if (ref_vel < v_max) {
+            ref_vel += 0.224;
           }
 
-          if (prev_size <= 2) {
+          if (prev_size < 2) {
             // fresh case
-            double prev_car_x = car_x - cos(car_yaw);
-            double prev_car_y = car_y - sin(car_yaw);
+            double prev_car_x = ref_x - cos(ref_yaw);
+            double prev_car_y = ref_y - sin(ref_yaw);
 
             ptsx.push_back(prev_car_x);
-            ptsx.push_back(car_x);
+            ptsx.push_back(ref_x);
 
             ptsy.push_back(prev_car_y);
-            ptsy.push_back(car_y);
+            ptsy.push_back(ref_y);
           } else {
             //prev_size = min(prev_buffer_length, prev_size);
 
             ref_x = previous_path_x[prev_size - 1];
             ref_y = previous_path_y[prev_size - 1];
-
+            
             double ref_x_prev = previous_path_x[prev_size - 2];
             double ref_y_prev = previous_path_y[prev_size - 2];
             ref_yaw = atan2(ref_y - ref_y_prev, ref_x - ref_x_prev);
@@ -356,11 +355,11 @@ int main() {
             ptsy.push_back(ref_y);
           }
 
-          // generate spaced out points
+          // generate spaced out points in map coordinates
           auto wp_d = 2 + 4 * lane;
-          auto next_wp0 = getXY(car_s + 10, wp_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-          auto next_wp1 = getXY(car_s + 20, wp_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
-          auto next_wp2 = getXY(car_s + 30, wp_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          auto next_wp0 = getXY(car_s + 30, wp_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          auto next_wp1 = getXY(car_s + 60, wp_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+          auto next_wp2 = getXY(car_s + 90, wp_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
           // cout << "s: " << car_s + 90 << endl;
           ptsx.push_back(next_wp0[0]);
           ptsx.push_back(next_wp1[0]);
@@ -370,16 +369,18 @@ int main() {
           ptsy.push_back(next_wp0[1]);
           ptsy.push_back(next_wp0[1]);
 
-
-          
-          rotatePoints(ptsx, ptsy, ref_x, ref_y, ref_yaw);
-
+          // Transform to car coordinates
+          for (int i = 0; i < ptsx.size(); i++) {
+            double shift_x = ptsx[i] - ref_x;
+            double shift_y = ptsy[i] - ref_y;
+            ptsx[i] = shift_x * cos(0 - ref_yaw) - shift_y * sin(0 - ref_yaw);
+            ptsy[i] = shift_x * sin(0 - ref_yaw) + shift_y * cos(0 - ref_yaw);
+          }
 
           // --- Points is now centered at where the car is
           // --- We're going to create a spline based on that
           // create spline
           tk::spline s;
-
           s.set_points(ptsx, ptsy);
 
           for (int i = 0; i < prev_size; i++) {
@@ -391,13 +392,12 @@ int main() {
           double target_y = s(target_x);
           double target_dist = getDistance(target_x, target_y);
           // N x 0.02 x target_velocity = target_dist
-          double x_add_on = 0;
+          double x_add_on = 0.0;
 
-          for (int i = 1; i <= num_points - prev_size; i++) {
-            double N = (target_dist/(.02 * v_ref/2.24));
-            double x_point = x_add_on + (target_x)/N;
+          for (int i = 0; i < num_points - prev_size; i++) {
+            double N = target_dist / (0.02 * ref_vel / 2.24);
+            double x_point = x_add_on + target_x / N;
             double y_point = s(x_point);
-            
             x_add_on = x_point;
 
             double x_ref = x_point;
