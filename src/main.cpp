@@ -166,9 +166,41 @@ vector<double> getXY(double s, double d, const vector<double> &maps_s, const vec
 }
 
 double isOtherCarInLane(double other_d, double my_lane) {
-  return other_d < (2+4*my_lane + 2) && other_d > (2+4*my_lane -2);
+  return other_d < (2+4*my_lane + 2) && other_d > (2+4*my_lane - 2);
 }
 
+double canSwitchToLane(double targetLane, double car_s, double car_v /*mph*/, vector<vector<double>>& sensor_fusion) {
+  double closestCarInFront = 9999;
+  double closestCarBehind = -9999;
+  double v_front;
+  double v_back;
+  bool found_cars = false;
+  for (int i = 0; i < sensor_fusion.size(); i++) {
+    float d = sensor_fusion[i][6];
+    float s = sensor_fusion[i][5];
+    if (isOtherCarInLane(d, targetLane)) {
+      found_cars = true;
+      double delta_s = s - car_s;
+      double vx = sensor_fusion[i][3];
+      double vy = sensor_fusion[i][4];
+      double check_speed = sqrt(vx * vx + vy * vy) * 2.24; // mph
+      // TODO: deal with wrap around
+      if (delta_s > 0 && delta_s < closestCarInFront) {
+        closestCarInFront = delta_s;
+        v_front = check_speed;
+      } else if (delta_s <= 0 && delta_s > closestCarBehind) {
+        closestCarBehind = delta_s;
+        v_back = check_speed;
+      }
+    }
+  }
+  if (!found_cars) {
+    return true;
+  } else {
+
+  }
+}
+double findFastestOtherLane();
 int main() {
   uWS::Hub h;
 
@@ -282,7 +314,7 @@ int main() {
                 // Project value of other car to the future (up to previous points length)
                 //check_car_s += ((double)prev_size * 0.02 * check_speed);
                 double delta_s = check_car_s - original_car_s;
-                if (delta_s > 0 && delta_s < 30) {
+                if (delta_s > 0 && delta_s < 25) {
                   cout << "Delta s: " << delta_s << endl;
                   goal_vel = check_speed;
                   too_close = true;
@@ -292,6 +324,7 @@ int main() {
 
             if (too_close && ref_vel > goal_vel) {
               ref_vel -= 0.224;
+              lane = 0;
             } else if (ref_vel < goal_vel) {
               ref_vel += 0.224;
             }
