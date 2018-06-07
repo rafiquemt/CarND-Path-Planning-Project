@@ -171,11 +171,11 @@ double isOtherCarInLane(double other_d, double my_lane) {
 
 /**
  * Will return the velocity with which we can switch to the lane
- * -1 if a switch isn't possible 
+ * -1 if a switch isn't possible or safe
  */
 double canSwitchToLane(double targetLane, double car_s, double car_v /*mph*/, const vector<vector<double>> &sensor_fusion) {
-  double closestCarInFront = 50;
-  double closestCarBehind = -50;
+  double closestCarInFront = 50; // only search 50m ahead. short term optimization
+  double closestCarBehind = -50; // only search 50m behind
   double v_front = 49.5;
   double v_back;
   bool found_cars = false;
@@ -204,7 +204,7 @@ double canSwitchToLane(double targetLane, double car_s, double car_v /*mph*/, co
   } else {
     if (closestCarInFront > 30 && closestCarBehind < -10) {
       cout << "Lane Switchable: " << targetLane << "v: " << v_front << endl;
-      return max(49.5, v_front);
+      return min(49.5, v_front);
     } else {
       return -1;
     }
@@ -309,7 +309,7 @@ int main() {
 
             double ref_x_prev, ref_y_prev;
 
-            // -- Decide Velocity
+            // -- Decide Velocity and pick lane
             // --------
             bool too_close = false;
             goal_vel = v_max;
@@ -331,8 +331,9 @@ int main() {
                 }
               }
             }
-
-            if (too_close && ref_vel > goal_vel) {
+            // pick a lane we're  being slowed down by a car in our lane
+            if (too_close && ref_vel > 0.95*goal_vel) { // if too close, go slower than car infront
+              // if we're too close, find a lane to switch into
               ref_vel -= 0.224;
               double max_vel_found = goal_vel;
               int lane_int = (int) lane;
@@ -340,6 +341,7 @@ int main() {
               int lane_to_use = lane_int;
               for (int i = 0; i <= 2; i++) {
                 int lane_delta = i - lane_int;
+                // only immediate lanes on left or right can be selected
                 if (lane_delta == 1 || lane_delta == -1) {
                   double lane_vel = canSwitchToLane(i, original_car_s, ref_vel, sensor_fusion);
                   if (lane_vel > max_vel_found) {
