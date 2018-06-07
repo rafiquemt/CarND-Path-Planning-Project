@@ -174,9 +174,9 @@ double isOtherCarInLane(double other_d, double my_lane) {
  * -1 if a switch isn't possible 
  */
 double canSwitchToLane(double targetLane, double car_s, double car_v /*mph*/, const vector<vector<double>> &sensor_fusion) {
-  double closestCarInFront = 100;
-  double closestCarBehind = -100;
-  double v_front;
+  double closestCarInFront = 50;
+  double closestCarBehind = -50;
+  double v_front = 49.5;
   double v_back;
   bool found_cars = false;
   for (int i = 0; i < sensor_fusion.size(); i++) {
@@ -202,8 +202,9 @@ double canSwitchToLane(double targetLane, double car_s, double car_v /*mph*/, co
   if (!found_cars) {
     return 49.5;
   } else {
-    if (closestCarInFront > 15 && closestCarBehind < -15) {
-      return v_front;
+    if (closestCarInFront > 30 && closestCarBehind < -10) {
+      cout << "Lane Switchable: " << targetLane << "v: " << v_front << endl;
+      return max(49.5, v_front);
     } else {
       return -1;
     }
@@ -321,11 +322,10 @@ int main() {
                 double check_speed = sqrt(vx * vx + vy * vy) * 2.24; // mph
                 double check_car_s = sensor_fusion[i][5];
 
-                // Project value of other car to the future (up to previous points length)
                 //check_car_s += ((double)prev_size * 0.02 * check_speed);
                 double delta_s = check_car_s - original_car_s;
-                if (delta_s > 0 && delta_s < 25) {
-                  cout << "Delta s: " << delta_s << endl;
+                if (delta_s > 0 && delta_s < 30) {
+                  //cout << "Delta s: " << delta_s << endl;
                   goal_vel = check_speed;
                   too_close = true;
                 }
@@ -335,9 +335,12 @@ int main() {
             if (too_close && ref_vel > goal_vel) {
               ref_vel -= 0.224;
               double max_vel_found = goal_vel;
-              double lane_to_use = lane;
+              int lane_int = (int) lane;
+              cout << "In Lane: " << lane_int << " v: " << max_vel_found << endl;
+              int lane_to_use = lane_int;
               for (int i = 0; i <= 2; i++) {
-                if (i != (int) lane) {
+                int lane_delta = i - lane_int;
+                if (lane_delta == 1 || lane_delta == -1) {
                   double lane_vel = canSwitchToLane(i, original_car_s, ref_vel, sensor_fusion);
                   if (lane_vel > max_vel_found) {
                     lane_to_use = i;
@@ -345,10 +348,10 @@ int main() {
                   }
                 }
               }
-              int lane_delta = (int) (lane_to_use - lane);
-              if (lane_delta == 1 || lane_delta == -1) {
-                lane = lane_to_use;
-              }
+              cout << "Lane from: " << lane << "/" << lane_int 
+                    << " to: " << lane_to_use << " v_0: " << goal_vel 
+                    << " v_1: " << max_vel_found << endl;
+              lane = lane_to_use;
             } else if (ref_vel < goal_vel) {
               ref_vel += 0.224;
             }
